@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 
-const FEEDBACK_URL = "https://docs.google.com/forms/d/e/1FAIpQLSfzEfKGfOYvTMroMjEXQsg9U0DwUCkutNJE1Du0lzQzQLvCPw/viewform?usp=publish-editor";
+const FEEDBACK_URL = "https://docs.google.com/forms/d/e/1FAIpQLSfzEfKGfOYvTMroMjEXQsg9U0DwUCkutNJE1Du0lzQzQLvCPw/viewform";
 
 export default function Home() {
   const [quizTitle, setQuizTitle] = useState("Photosynthesis Quiz");
