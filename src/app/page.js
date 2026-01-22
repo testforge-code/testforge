@@ -2,6 +2,8 @@
 
 import { useMemo, useState } from "react";
 
+const FEEDBACK_URL = "https://docs.google.com/forms/d/e/1FAIpQLSfzEfKGfOYvTMroMjEXQsg9U0DwUCkutNJE1Du0lzQzQLvCPw/viewform?usp=publish-editor";
+
 export default function Home() {
   const [quizTitle, setQuizTitle] = useState("Photosynthesis Quiz");
   const [sourceText, setSourceText] = useState("");
@@ -108,14 +110,14 @@ export default function Home() {
       const a = document.createElement("a");
       a.href = url;
 
-      // Use the quizTitle for the download name (safe fallback)
-      const safeName = (quizTitle || "testforge-quiz")
-        .toLowerCase()
-        .trim()
-        .slice(0, 80)
-        .replace(/[^a-z0-9]+/g, "-")
-        .replace(/-+/g, "-")
-        .replace(/^-|-$/g, "") || "testforge-quiz";
+      const safeName =
+        (quizTitle || "testforge-quiz")
+          .toLowerCase()
+          .trim()
+          .slice(0, 80)
+          .replace(/[^a-z0-9]+/g, "-")
+          .replace(/-+/g, "-")
+          .replace(/^-|-$/g, "") || "testforge-quiz";
 
       a.download = `${safeName}.docx`;
 
@@ -131,14 +133,32 @@ export default function Home() {
     }
   }
 
+  function handleFeedback() {
+    if (!FEEDBACK_URL || FEEDBACK_URL.includes("PASTE_YOUR_GOOGLE_FORM_LINK_HERE")) {
+      alert("Please add your Google Form link to FEEDBACK_URL in src/app/page.js");
+      return;
+    }
+    window.open(FEEDBACK_URL, "_blank", "noopener,noreferrer");
+  }
+
   return (
     <main className="min-h-screen bg-white text-gray-900">
       <div className="mx-auto max-w-4xl px-4 py-10">
-        <header className="space-y-2">
-          <h1 className="text-3xl font-semibold">TestForge</h1>
-          <p className="text-gray-600">
-            Paste lesson content and generate a quiz + answer key in minutes.
-          </p>
+        <header className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="space-y-1">
+            <h1 className="text-3xl font-semibold">TestForge</h1>
+            <p className="text-gray-600">
+              Paste lesson content and generate a quiz + answer key in minutes.
+            </p>
+          </div>
+
+          <button
+            className="rounded-2xl border border-gray-300 px-4 py-2 text-sm font-medium hover:bg-gray-50"
+            onClick={handleFeedback}
+            type="button"
+          >
+            Give feedback
+          </button>
         </header>
 
         <section className="mt-8 space-y-4">
@@ -258,9 +278,7 @@ export default function Home() {
 
                   <button
                     className={`rounded-2xl px-4 py-2 text-sm font-medium text-white ${
-                      !isExporting
-                        ? "bg-black hover:opacity-90"
-                        : "bg-gray-400"
+                      !isExporting ? "bg-black hover:opacity-90" : "bg-gray-400"
                     }`}
                     onClick={handleDownloadDocx}
                     disabled={isExporting}
