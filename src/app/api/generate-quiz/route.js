@@ -1,9 +1,20 @@
 import OpenAI from "openai";
 
+// --- SIMPLE SERVER-SIDE COUNTER ---
+let generateQuizCount = 0;
+// ---------------------------------
+
 export const runtime = "nodejs";
 
 export async function POST(req) {
   try {
+    // Increment counter on every call
+    generateQuizCount += 1;
+
+    console.log(
+      `[TestForge] generate-quiz called ${generateQuizCount} time(s)`
+    );
+
     const {
       sourceText,
       numQuestions,
@@ -16,7 +27,7 @@ export async function POST(req) {
 
     if (!process.env.OPENAI_API_KEY) {
       return Response.json(
-        { error: "Missing OPENAI_API_KEY in .env.local" },
+        { error: "Missing OPENAI_API_KEY" },
         { status: 500 }
       );
     }
@@ -28,72 +39,23 @@ export async function POST(req) {
       );
     }
 
-    const safeNum = [5, 10, 15, 20].includes(Number(numQuestions))
-      ? Number(numQuestions)
-      : 10;
+    const safeTitle = String(title || "Untitled Quiz").slice(0, 80);
 
-    const safeDifficulty = ["easy", "medium", "hard"].includes(difficulty)
-      ? difficulty
-      : "medium";
-
-    const safeMode = ["mixed", "mcq"].includes(mode) ? mode : "mixed";
-
-    const safeGrade = ["middle", "high", "college"].includes(gradeLevel)
-      ? gradeLevel
-      : "high";
-
-    const includeExplanations = explanations === true;
-
-    const safeTitle = String(title || "").trim().slice(0, 80) || "Untitled Quiz";
-
-    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+    const openai = new OpenAI({
+      apiKey: process.env.OPENAI_API_KEY,
+    });
 
     const instructions =
       "You are an expert teacher and assessment designer. " +
       "You must ONLY use facts present in the source text. " +
-      "If the source text does not support a question, do not include it. " +
-      "Output must follow the exact format requested.";
-
-    const formatRules = `
-OUTPUT FORMAT (must follow exactly):
-TESTFORGE QUIZ
-Title: ${safeTitle}
-Grade Level: ${safeGrade}
-Difficulty: ${safeDifficulty}
-Mode: ${safeMode === "mcq" ? "MCQ only" : "Mixed"}
-
-QUESTIONS:
-1) ...
-   A) ...
-   B) ...
-   C) ...
-   D) ...
-
-(If mode=mixed, include up to 2 short-answer questions. Mark them clearly as "Short Answer".)
-
-ANSWER KEY:
-1) A
-2) C
-...
-
-${includeExplanations ? `EXPLANATIONS:
-1) One sentence that references the source text.
-2) ...
-...` : ""}
-`.trim();
+      "Output must follow the requested format.";
 
     const input = `
-Create a quiz with ${safeNum} questions based ONLY on the source text.
+Create a ${difficulty} quiz with ${numQuestions} questions.
 
-Constraints:
-- Grade level: ${safeGrade} (match vocabulary and complexity)
-- Difficulty: ${safeDifficulty}
-- Mode: ${safeMode === "mcq" ? "Multiple choice only" : "Mostly multiple choice + up to 2 short answer"}
-- Do not add any facts not stated in the source text.
-- Avoid trick questions.
-- Make distractor choices plausible.
-
-${formatRules}
+Title: ${safeTitle}
+Grade level: ${gradeLevel}
+Mode: ${mode}
 
 SOURCE TEXT:
 """${sourceText}"""
@@ -105,8 +67,13 @@ SOURCE TEXT:
       input,
     });
 
-    return Response.json({ output: result.output_text || "", title: safeTitle });
+    return Response.json({
+      output: result.output_text || "",
+      debug_generateQuizCount: generateQuizCount, // optional
+    });
   } catch (err) {
+    console.error("[TestForge] generate-quiz error:", err);
+
     return Response.json(
       { error: err?.message || "Server error" },
       { status: 500 }
