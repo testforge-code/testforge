@@ -1,19 +1,21 @@
 import OpenAI from "openai";
-
-// --- SIMPLE SERVER-SIDE COUNTER ---
-let generateQuizCount = 0;
-// ---------------------------------
+import { kv } from "@vercel/kv";
 
 export const runtime = "nodejs";
 
 export async function POST(req) {
   try {
-    // Increment counter on every call
-    generateQuizCount += 1;
+    // Persistent counters
+    const total = await kv.incr("tf:generate_quiz_total");
 
-    console.log(
-      `[TestForge] generate-quiz called ${generateQuizCount} time(s)`
-    );
+    const hourKey = `tf:generate_quiz_hour:${new Date()
+      .toISOString()
+      .slice(0, 13)}`; // YYYY-MM-DDTHH
+
+    const hour = await kv.incr(hourKey);
+    await kv.expire(hourKey, 60 * 60 * 24 * 7); // keep hourly buckets 7 days
+
+    console.log(`[TestForge] generate-quiz total=${total} hour=${hour}`);
 
     const {
       sourceText,
@@ -26,10 +28,7 @@ export async function POST(req) {
     } = await req.json();
 
     if (!process.env.OPENAI_API_KEY) {
-      return Response.json(
-        { error: "Missing OPENAI_API_KEY" },
-        { status: 500 }
-      );
+      return Response.json({ error: "Missing OPENAI_API_KEY" }, { status: 500 });
     }
 
     if (!sourceText || sourceText.trim().length < 50) {
@@ -39,11 +38,10 @@ export async function POST(req) {
       );
     }
 
-    const safeTitle = String(title || "Untitled Quiz").slice(0, 80);
+    const safeTitle =
+      String(title || "").trim().slice(0, 80) || "Untitled Quiz";
 
-    const openai = new OpenAI({
-      apiKey: process.env.OPENAI_API_KEY,
-    });
+    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
     const instructions =
       "You are an expert teacher and assessment designer. " +
@@ -51,11 +49,13 @@ export async function POST(req) {
       "Output must follow the requested format.";
 
     const input = `
-Create a ${difficulty} quiz with ${numQuestions} questions.
+Create a quiz based ONLY on the source text.
 
 Title: ${safeTitle}
 Grade level: ${gradeLevel}
+Difficulty: ${difficulty}
 Mode: ${mode}
+Include explanations: ${explanations ? "yes" : "no"}
 
 SOURCE TEXT:
 """${sourceText}"""
@@ -69,14 +69,10 @@ SOURCE TEXT:
 
     return Response.json({
       output: result.output_text || "",
-      debug_generateQuizCount: generateQuizCount, // optional
+      stats: { total_generations: total },
     });
   } catch (err) {
     console.error("[TestForge] generate-quiz error:", err);
-
-    return Response.json(
-      { error: err?.message || "Server error" },
-      { status: 500 }
-    );
+    return Response.json({ error: err?.message || "Server error" }, { status: 500 });
   }
 }
